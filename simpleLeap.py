@@ -1,6 +1,6 @@
-import Leap, sys, time, thread, math
+import Leap, sys
 import paho.mqtt.client as mqtt
-
+import json
 
 class LeapMotionListener(Leap.Listener):
     finger_names = ['Thumb', 'Index', 'Middle', 'Ring', 'Pinky']
@@ -23,16 +23,20 @@ class LeapMotionListener(Leap.Listener):
 
     def on_frame(self, controller):
         frame = controller.frame()
-        # print (frame.id,"Is valid:",frame.is_valid)
-        frameJson = {'frameId':frame.id, 'hands':[]}
+        frameJson = {'valid':frame.is_valid,'frameId':frame.id, 'hands':[]}
         for hand in frame.hands:
-            handtype = "left" if hand.is_left else "right"
-            frameJson['hands'].append({'type':handtype, 'id':hand.id})
-            print (handtype, hand.id, "{0:.2f}".format(hand.direction.x), "{0:.2f}".format(hand.direction.y), "{0:.2f}".format(hand.direction.z) )
-            
+            handtype = 0 if hand.is_left else 1
+            handJson = {'valid':hand.is_valid,'type':handtype, 'id':hand.id, 'fingers':[]}
+            handJson['direction']={'x':hand.direction.x, 'y':hand.direction.y,'z':hand.direction.z}
+            for finger in hand.fingers:
+                fingerJson={'valid':finger.is_valid,'bones':[],'type':finger.type, 'id':finger.id, 'direction':{'x':finger.direction.x,'y':finger.direction.y,'z':finger.direction.z}}
+                for index in range(4):
+                    fingerJson['bones'].append({'valid':finger.bone(index).is_valid,'type':finger.bone(index).type,'direction':{'x':finger.bone(index).direction.x,'y':finger.bone(index).direction.y,'z':finger.bone(index).direction.z} })
+                handJson['fingers'].append(fingerJson)
+            frameJson['hands'].append(handJson)
         if(frame.hands):
-            self.client.publish("leapLesco", str(frameJson))
-
+            self.client.publish("leapLesco", json.dumps(frameJson))
+            print json.dumps(frameJson)
 
 
 def main():
